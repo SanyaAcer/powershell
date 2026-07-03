@@ -33,7 +33,7 @@ Get-PnPUserAndContentMoveState -OdbMoveId <Guid> [-Connection <PnPConnection>]
 ```
 
 ## DESCRIPTION
-Returns status information for SharePoint Online multi-geo user and OneDrive content move jobs. You can retrieve one move job by user principal name or OneDrive move ID, or retrieve a move report filtered by state, direction, time window, and limit.
+Returns status information for SharePoint Online multi-geo user and OneDrive content move jobs. You can retrieve one move job by user principal name or OneDrive move ID, or retrieve a move report filtered by state, direction, time window, and limit. When no move state or direction is specified, all states and directions are returned.
 
 ## EXAMPLES
 
@@ -150,7 +150,7 @@ Parameter Sets: MoveReport
 
 Required: False
 Position: Named
-Default value: NotStarted
+Default value: All
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -164,7 +164,7 @@ Parameter Sets: MoveReport
 
 Required: False
 Position: Named
-Default value: MoveOut
+Default value: All
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -189,5 +189,9 @@ Accept wildcard characters: False
 Returns objects with `UserPrincipalName`, `MoveJobId`, `SourceDataLocation`, `DestinationDataLocation`, `TimeStamp`, and `MoveState` properties. Validation-only move jobs return `ValidationState` instead of `TimeStamp` and `MoveState`. When `-Verbose` is specified, additional move job details are returned.
 
 ## RELATED LINKS
+
+[Start-PnPUserAndContentMove](Start-PnPUserAndContentMove.md)
+
+[Stop-PnPUserAndContentMove](Stop-PnPUserAndContentMove.md)
 
 [Microsoft 365 Patterns and Practices](https://aka.ms/m365pnp)
