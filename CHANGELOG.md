@@ -9,9 +9,69 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 ## [Current nightly]
 
 ### Added
+- Added `Test-PnPConnectionPermission` which compares the current connection's access token claims with the permission metadata of a PnP PowerShell cmdlet. Returns `$true` or `$false` and names the missing permissions through a non-terminating error, so it can be used both in a conditional and, with `-ErrorAction Stop`, as a preflight check that fails a script before anything is changed. A more privileged scope satisfies a lesser one, and requirements which cannot be established are reported as indeterminate rather than as missing permissions. [#5428](https://github.com/pnp/powershell/pull/5428)
+- Added `ApiPermissionsDependOnResource` attribute for cmdlets of which the required permissions follow from the resource they are pointed at or from how they are invoked, and applied it to `Get-PnPGraphSubscription`, `New-PnPGraphSubscription`, `Set-PnPGraphSubscription`, `Remove-PnPGraphSubscription`, `Invoke-PnPGraphMethod`, `New-PnPSite`, `Set-PnPSiteClassification` and `Sync-PnPSharePointUserProfilesFromAzureActiveDirectory`. The attribute is informational and is not evaluated when validating an access token. [#5427](https://github.com/pnp/powershell/pull/5427)
+- Added `ApiPermissionsNotRequired` attribute for cmdlets which need no permissions on the application registration PnP PowerShell connects with, and applied it to `Get-PnPConnection`, `Get-PnPContext`, `Set-PnPContext`, `Get-PnPPowerShellTelemetryEnabled`, `Enable-PnPPowerShellTelemetry`, `Disable-PnPPowerShellTelemetry`, `Register-PnPEntraIDApp` and `Register-PnPEntraIDAppForInteractiveLogin`. The attribute is informational and is not evaluated when validating an access token. [#5427](https://github.com/pnp/powershell/pull/5427)
+- Added `Get-PnPCommandPermission` cmdlet which returns the delegated and application API permissions and the minimum SharePoint role required to run a cmdlet. Permissions are read from the permission attributes where declared and derived from the cmdlet type and operation where they are not. Supports wildcards, cmdlet aliases and filtering on resource type, and returns all cmdlets when no name is provided. [#5427](https://github.com/pnp/powershell/pull/5427)
+- Added `Add-PnPTenantSearchCrawledProperty` cmdlet which allows creation of a tenant level crawled property for SharePoint Online search. [#5373](https://github.com/pnp/powershell/pull/5373)
+- Added `GitLab CI/CD` support to `Connect-PnPOnline -FederatedIdentity`. [#5395](https://github.com/pnp/powershell/pull/5395)
+- Added `PreferredDataLocation` support to `Set-PnPMicrosoft365Group` and documented it for `Get-PnPMicrosoft365Group` and `New-PnPMicrosoft365Group`. [#5402](https://github.com/pnp/powershell/pull/5402)
+- Added `Standard` and `EDU_Staff` template support to `New-PnPTeamsTeam` and provision Teams templates through Microsoft Graph team templates. Note that `EDU_Class` and `EDU_PLC` are now also provisioned through Microsoft Graph team templates (`POST /teams`) instead of the previous Microsoft 365 Group creation and teamify flow. [#999](https://github.com/pnp/powershell/issues/999)
+- Added `-ExchangeApplicationPermissions`, `-ExchangeDelegatePermissions`, `-PowerBIApplicationPermissions`, `-PowerBIDelegatePermissions`, `-DataverseDelegatePermissions`, `-PowerAppsDelegatePermissions`, `-AzureServiceManagementDelegatePermissions` and `-ResourcePermissions` to `Register-PnPEntraIDApp`, the last one to request permissions on any other API. [#5424](https://github.com/pnp/powershell/pull/5424)
+- Refreshed the permissions shipping with the module, taking Microsoft Graph from 223 application and 294 delegated permissions to 705 and 795, and SharePoint from 9 and 18 to 20 and 29. [#5424](https://github.com/pnp/powershell/pull/5424)
+- Added `-IncludeExtensionAttributes` to `Get-PnPMicrosoft365Group`, which populates the `OnPremisesExtensionAttributes` property with the extension attributes 1-15 of a group. Microsoft Graph only populates these for groups that are synchronized from an on-premises Active Directory, not for cloud only groups. [#5425](https://github.com/pnp/powershell/pull/5425)
+
+### Changed
+- Changed `Register-PnPEntraIDApp` and `Register-PnPEntraIDAppForInteractiveLogin` to register exactly the requested permissions. An invocation whose permissions were all silently dropped, such as `-Scopes` holding only delegated permissions, previously fell back to the default permission set, so the resulting app can differ from before for the same command line. [#5424](https://github.com/pnp/powershell/pull/5424)
+- Changed `Register-PnPEntraIDApp` and `Register-PnPEntraIDAppForInteractiveLogin` to no longer accept permissions that their resource has retired or disabled, as those can never be granted. This covers the `TeamsApp.*`, `Approval.*`, `ApprovalRequest.*`, `SensitiveInfoType.*`, `Place.Read`, `Place.Read.Shared`, `Place.ReadWrite`, `ChannelMessage.Delete`, `DataLossPreventionPolicy.Evaluate` and `AgentCard.*` Microsoft Graph permissions and the `ThreatIntelligence.Read` and `ActivityReports.Read` Office 365 Management APIs permissions. [#5424](https://github.com/pnp/powershell/pull/5424)
+- Changed `Export-PnPFlow -AsZipPackage` and `Export-PnPPowerApp` to ask for confirmation before overwriting an existing file when `-OutPath` is omitted, as they already did when `-OutPath` is specified. Unattended scripts that rely on the previous silent overwrite need to specify `-Force`. [#5421](https://github.com/pnp/powershell/pull/5421)
+
+### Fixed
+- Fixed `Add-PnPStoredCredential`, `Get-PnPStoredCredential` and `Remove-PnPStoredCredential` not working on Linux when `Microsoft.PowerShell.SecretManagement` is not configured. Storing a credential reported success while writing nothing, and retrieving or removing one always came back empty, which also meant `Connect-PnPOnline` never resolved a stored credential on Linux. Credentials are now written to and read from the Linux Secret Service, and the username is stored alongside the password so a complete `PSCredential` is returned rather than the password on its own. Credentials are kept under their own keyring schema, separate from the one holding managed application ids. The same cmdlets were also silently doing nothing when `Microsoft.PowerShell.SecretManagement` is installed without a default vault being registered, on every platform, and now fall back to the credential store of the operating system in that situation. [#5429](https://github.com/pnp/powershell/pull/5429)
+- Fixed the access token permission validation reporting a required permission as missing when the token holds a scope which covers it, such as a token with `Sites.FullControl.All` being reported as lacking `Sites.Read.All`. The permission metadata states the least privileged scope which suffices, so a more privileged scope now satisfies it. This affects the validation message written to the trace log by every cmdlet as well as `Test-PnPConnectionPermission`. [#5428](https://github.com/pnp/powershell/pull/5428)
+- Fixed the documented permissions of `Get-PnPGraphSubscription`, which listed `Subscription.Read.All` as required. That permission is only needed to also return subscriptions created by other applications; reading back a subscription created by the current application requires the same permissions on the subscribed resource that were needed to create it. Also documented the resource dependent permissions of `New-PnPGraphSubscription`, `Set-PnPGraphSubscription`, `Remove-PnPGraphSubscription` and `Invoke-PnPGraphMethod`, and corrected `Set-PnPGraphSubscription` linking to the delete instead of the update API documentation. [#5427](https://github.com/pnp/powershell/pull/5427)
+- Fixed the documented Microsoft Graph permission of `Sync-PnPSharePointUserProfilesFromAzureActiveDirectory`, which listed `User.Read`. Listing all users from Entra ID requires `User.Read.All`, and Microsoft Graph is only called when `-Users` is not provided. Its SharePoint permissions are now declared as metadata as well. [#5427](https://github.com/pnp/powershell/pull/5427)
+- Fixed requested permissions not being applied by `Register-PnPEntraIDApp` and `Register-PnPEntraIDAppForInteractiveLogin`: `-Scopes` silently dropped every delegated permission, such as `SPO.AllSites.FullControl`, and `-O365ManagementApplicationPermissions` and `-O365ManagementDelegatePermissions` were never applied. A permission that cannot be resolved is now reported as an error, as is combining `-Scopes` with the per resource parameters. [#5424](https://github.com/pnp/powershell/pull/5424)
+- Fixed incorrect ids for the Microsoft Graph `Sites.Selected` and `Contacts-OnPremisesSyncBehavior.ReadWrite.All` permissions and the SharePoint `EnterpriseResource.Read` permission. [#5424](https://github.com/pnp/powershell/pull/5424)
+- Fixed `Register-PnPEntraIDApp` and `Register-PnPEntraIDAppForInteractiveLogin` running the consent flow against SharePoint for apps that request no SharePoint and no Microsoft Graph permissions. Such an app now reports that admin consent has to be granted through the Entra ID portal. [#5424](https://github.com/pnp/powershell/pull/5424)
+- Fixed `Get-PnPEntraIDAppPermission` not reporting the Office 365 Management APIs permissions of an app registration. [#5424](https://github.com/pnp/powershell/pull/5424)
+- Fixed the permissions shipping with the module being parsed once per cmdlet invocation, per dynamic parameter and per application reported on by `Get-PnPEntraIDAppPermission`. [#5424](https://github.com/pnp/powershell/pull/5424)
+- Fixed required Microsoft Graph permission metadata for `Send-PnPMail`, `Set-PnPList`, `Get-PnPWebAlert`, `Set-PnPSiteSensitivityLabel`, `Remove-PnPSiteSensitivityLabel`, and `Get-PnPAvailableSensitivityLabel`. [#5423](https://github.com/pnp/powershell/pull/5423)
+- Fixed required API permission metadata for `Get-PnPPowerPlatformEnvironment`, `Get-PnPPowerPlatformSolution`, `Get-PnPPowerPlatformCustomConnector`, `Get-PnPPowerApp`, `Export-PnPPowerApp`, `Get-PnPPowerAppPermission`, `Remove-PnPPowerAppPermission`, `Set-PnPPowerAppByPassConsent`, `Add-PnPFlowOwner`, `Disable-PnPFlow`, `Enable-PnPFlow`, `Get-PnPFlowOwner`, `Get-PnPFlowRun`, `Remove-PnPFlow`, `Remove-PnPFlowOwner`, `Restart-PnPFlowRun`, `Restore-PnPFlow`, and `Stop-PnPFlowRun`, including sovereign-cloud Dataverse audience recognition. [#5422](https://github.com/pnp/powershell/pull/5422)
+- Fixed an issue with `Add-PnPListItem` and `Set-PnPListItem` cmdlets when trying to set taxonomy fields by passing in a GUID or term instance using a Batch. [#5174](https://github.com/pnp/powershell/pull/5174)
+- Fixed issue with Azure functions not working properly when we also have other modules like Az which rely on .NET 10. [#5393](https://github.com/pnp/powershell/pull/5393)
+- Fixed multi-geo compatibility issues with `Get-PnPGeoAdministrator` response handling, `Set-PnPMultiGeoExperience` confirmation prompts, and unsupported-version errors for `Set-PnPMultiGeoCompanyAllowedDataLocation`. [#5401](https://github.com/pnp/powershell/pull/5401)
+- Fixed Power Apps cmdlets to use cloud-specific Power Apps service audiences and endpoints for government clouds. [#5404](https://github.com/pnp/powershell/pull/5404)
+- Fixed `Export-PnPPowerApp`, `Get-PnPPowerPlatformCustomConnector`, `Export-PnPFlow -AsZipPackage`, and `Import-PnPFlow` to use the Power Apps service audience when calling Power Apps and Business Applications endpoints in sovereign clouds. [#5408](https://github.com/pnp/powershell/pull/5408)
+- Fixed `Export-PnPFlow -AsZipPackage` silently doing nothing when the export failed. Failures are now reported on the PowerShell error stream and incomplete or unsuccessful package responses are rejected instead of resulting in an empty or invalid file. [#1340](https://github.com/pnp/powershell/issues/1340)
+- Fixed `Export-PnPPowerApp` silently doing nothing when the export failed, and no longer polling forever when the service reports a failed export. The cmdlet now waits up to 30 minutes for the package to be prepared, following the polling interval requested by the service. [#1340](https://github.com/pnp/powershell/issues/1340)
+- Fixed `Import-PnPFlow` ignoring its documented default polling behavior when `-RetryCount` and `-Delay` were omitted, which made the import fail with a missing property error. Both parameters now validate their range and a run that never becomes ready reports why. [#5421](https://github.com/pnp/powershell/pull/5421)
+- Fixed `Set-PnPPlannerPlan` failing to update a plan that was modified by someone else while the update was in flight, and returning nothing instead of an error when the update could not be applied. [#5421](https://github.com/pnp/powershell/pull/5421)
+- Fixed `Get-PnPUserProfilePhoto` and other Microsoft Graph backed cmdlets silently ignoring a failed request when the error response could be parsed but did not contain any error details. [#5421](https://github.com/pnp/powershell/pull/5421)
+- Fixed `Resolve-PnPFolder` cmdlet not working in large lists and document library due to 5000 items threshold. [#5411](https://github.com/pnp/powershell/pull/5411)
+- Fixed `Set-PnPDefaultColumnValues` corrupting library defaults on invalid taxonomy values. [#5412](https://github.com/pnp/powershell/pull/5412)
+- Fixed `New-PnPTeamsTeam` sporadically failing with `Not Found (404): Resource '<id>' does not exist or one of its queried reference-property objects are not present.` while the team was in fact created. [#5426](https://github.com/pnp/powershell/pull/5426)
+
+### Removed
+
+### Contributors
+
+- [svermaark]
+- Fabian Hutzli [fabianhutzli]
+- [reusto]
+- Patrick Schneider [pschneid]
+    
+## [3.3.0]
+
+### Added
+- Added `Get-PnPUserOneDriveLocation` cmdlet to retrieve SharePoint Online multi-geo location details for a user's OneDrive personal site. [#5382](https://github.com/pnp/powershell/pull/5382)
+- Added `Remove-PnPGeoAdministrator` cmdlet to remove SharePoint Online geo administrators. [#5380](https://github.com/pnp/powershell/pull/5380)
+- Added `Get-PnPGeoAdministrator` cmdlet to retrieve SharePoint Online geo administrators. [#5378](https://github.com/pnp/powershell/pull/5378)
+- Added `Add-PnPGeoAdministrator` cmdlet to add SharePoint Online multi-geo administrators. [#5381](https://github.com/pnp/powershell/pull/5381)
 - Added `Get-PnPMultiGeoExperience` cmdlet to retrieve the SharePoint Online multi-geo experience mode. [#5372](https://github.com/pnp/powershell/pull/5372)
 - Added `Set-PnPMultiGeoExperience` cmdlet to upgrade the tenant multi-geo experience to include SharePoint Online Multi-Geo. [#5369](https://github.com/pnp/powershell/pull/5369)
 - Added `Set-PnPMultiGeoCompanyAllowedDataLocation` cmdlet to start setting up a SharePoint Online multi-geo allowed data location. [#5368](https://github.com/pnp/powershell/pull/5368)
+- Added `Remove-PnPMultiGeoCompanyAllowedDataLocation` cmdlet to delete a SharePoint Online multi-geo allowed data location. [#5379](https://github.com/pnp/powershell/pull/5379)
 - Added `Get-PnPGeoStorageQuota` cmdlet to retrieve SharePoint Online multi-geo storage quota details. [#5371](https://github.com/pnp/powershell/pull/5371)
 - Added `Set-PnPGeoStorageQuota` cmdlet to set SharePoint Online multi-geo storage quotas. [#5370](https://github.com/pnp/powershell/pull/5370)
 - Added `Get-PnPSiteContentMoveState` cmdlet to retrieve SharePoint Online site content move states. [#5365](https://github.com/pnp/powershell/pull/5365)
@@ -34,6 +94,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 - Added properties `OrganizationSharingLinkRecommendedExpirationInDays`, `OrganizationSharingLinkMaxExpirationInDays`, `OverrideTenantOrganizationSharingLinkExpirationPolicy` to `Set-PnPSite`, `Set-PnPTenantsite` cmdlets. [#5333](https://github.com/pnp/powershell/pull/5333)
 - Added `WhoCanShareAllowListInTenantByPrincipalIdentity` property to `Set-PnPTenant` cmdlet. [#5322](https://github.com/pnp/powershell/pull/5322)
 - `Add/Set/Get/Remove-PnPVivaConnectionsDashboardACE` cmdlets no longer check the home site, they will work on any communication or modern team sites. [#5351](https://github.com/pnp/powershell/pull/5351)
+- Added `-BuiltIn` parameter to `Get-PnPSiteDesign` cmdlet to fetch OOTB site designs. [#5358](https://github.com/pnp/powershell/pull/5358)
 
 ### Fixed
 - `Remove-PnPEntraIDServicePrincipalAssignedAppRole` cmdlet now works properly if `-AppRole` is specified. [#5353](https://github.com/pnp/powershell/pull/5353)
@@ -41,7 +102,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 - Fixed issue with `Set-PnPListItem` and other SharePoint cmdlets as `ClientContext` is now processed more correctly when used in combination with other related cmdlets. [#5354](https://github.com/pnp/powershell/pull/5354)
 
 ### Contributors
-
 - Reshmee Auckloo [reshmee011]
 - [Tetronic]
 - Vasco Azevedo [vascoazevedo08]

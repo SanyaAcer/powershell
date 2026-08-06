@@ -125,14 +125,39 @@ namespace PnP.PowerShell.Commands.Base
                 "azure" or "management.azure.com" or "management.chinacloudapi.cn" or "management.usgovcloudapi.net" => Enums.ResourceTypeName.AzureManagementApi,
                 "exchangeonline" or "outlook.office.com" or "outlook.office365.com" => Enums.ResourceTypeName.ExchangeOnline,
                 "flow" or "service.flow.microsoft.com" => Enums.ResourceTypeName.PowerAutomate,
-                "powerapps" or "api.powerapps.com" => Enums.ResourceTypeName.PowerApps,
+                "powerapps"
+                    or "api.powerapps.com"
+                    or "service.powerapps.com"
+                    or "api.powerapps.cn"
+                    or "service.powerapps.cn"
+                    or "gov.api.powerapps.us"
+                    or "gov.service.powerapps.us"
+                    or "high.api.powerapps.us"
+                    or "high.service.powerapps.us"
+                    or "api.apps.appsplatform.us"
+                    or "service.apps.appsplatform.us" => Enums.ResourceTypeName.PowerApps,
                 "dynamics" or "admin.services.crm.dynamics.com" or "api.crm.dynamics.com" => Enums.ResourceTypeName.DynamicsCRM,
+                _ when IsDynamicsCrmAudience(sanitizedAudience) => Enums.ResourceTypeName.DynamicsCRM,
                 "gcs" or "gcs.office.com" => Enums.ResourceTypeName.Gcs,
 
                 // We assume SharePoint as the default as vanity domains cause no fixed structure to be present in the audience name
                 _ => Enums.ResourceTypeName.SharePoint
             };
             return resource;
+        }
+
+        private static bool IsDynamicsCrmAudience(string audience)
+        {
+            var hasCrmHostLabel = audience
+                .Split('.')
+                .Any(label => label.StartsWith("crm", StringComparison.Ordinal));
+
+            return hasCrmHostLabel &&
+                (audience.EndsWith(".dynamics.com", StringComparison.Ordinal) ||
+                 audience.EndsWith(".dynamics.cn", StringComparison.Ordinal) ||
+                 audience.EndsWith(".microsoftdynamics.de", StringComparison.Ordinal) ||
+                 audience.EndsWith(".microsoftdynamics.us", StringComparison.Ordinal) ||
+                 audience.EndsWith(".appsplatform.us", StringComparison.Ordinal));
         }
 
         /// <summary>
@@ -346,7 +371,7 @@ namespace PnP.PowerShell.Commands.Base
         }
 
         /// <summary>
-        /// Returns an access token based on a Federated Identity. Only works within Azure components supporting federated identities like GitHub/AzureDevOps.
+        /// Returns an access token based on a Federated Identity. Only works within Azure components supporting federated identities like GitHub Actions, Azure DevOps and GitLab CI/CD.
         /// </summary>
         /// <param name="clientId">The client Id of the Federated Identity application</param>
         /// <param name="tenant">The tenant Id of the Federated Identity application</param>
@@ -363,6 +388,8 @@ namespace PnP.PowerShell.Commands.Base
             var actionsIdTokenRequestUrl = Environment.GetEnvironmentVariable("ACTIONS_ID_TOKEN_REQUEST_URL");
             var actionsIdTokenRequestToken = Environment.GetEnvironmentVariable("ACTIONS_ID_TOKEN_REQUEST_TOKEN");
             var systemOidcRequestUri = Environment.GetEnvironmentVariable("SYSTEM_OIDCREQUESTURI");
+            var gitlabCi = Environment.GetEnvironmentVariable("GITLAB_CI");
+            var gitlabOidcToken = Environment.GetEnvironmentVariable("GITLAB_OIDC_TOKEN");
 
             if (!string.IsNullOrWhiteSpace(actionsIdTokenRequestUrl) && !string.IsNullOrWhiteSpace(actionsIdTokenRequestToken))
             {
@@ -403,9 +430,22 @@ namespace PnP.PowerShell.Commands.Base
                 var federationToken = await GetFederationTokenFromAzureDevOpsAsync(systemOidcRequestUri, systemAccessToken, serviceConnectionId);
                 return await GetAccessTokenWithFederatedTokenAsync(serviceConnectionAppId, serviceConnectionTenantId, requiredScope, federationToken);
             }
+            else if (!string.IsNullOrWhiteSpace(gitlabCi) && !string.IsNullOrWhiteSpace(gitlabOidcToken))
+            {
+                if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(tenant))
+                {
+                    throw new PSInvalidOperationException("ClientId and Tenant must be provided when using Federated Identity in GitLab CI/CD.");
+                }
+
+                Framework.Diagnostics.Log.Debug("TokenHandler", "GITLAB_CI and GITLAB_OIDC_TOKEN env variables found. The context is GitLab CI/CD...");
+
+                // GitLab's id_tokens feature mints the OIDC JWT directly into the configured job variable, so no
+                // separate request to GitLab is needed to obtain the federation token before exchanging it with Entra ID.
+                return await GetAccessTokenWithFederatedTokenAsync(clientId, tenant, requiredScope, gitlabOidcToken);
+            }
             else
             {
-                throw new PSInvalidOperationException("Federated identity is currently only supported in GitHub Actions and Azure DevOps.");
+                throw new PSInvalidOperationException("Federated identity is currently only supported in GitHub Actions, Azure DevOps and GitLab CI/CD.");
             }
         }
 

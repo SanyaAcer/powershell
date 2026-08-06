@@ -112,4 +112,6 @@ Returns a message indicating that setting up the new location has started.
 
 [Get-PnPMultiGeoCompanyAllowedDataLocation](Get-PnPMultiGeoCompanyAllowedDataLocation.md)
 
+[Remove-PnPMultiGeoCompanyAllowedDataLocation](Remove-PnPMultiGeoCompanyAllowedDataLocation.md)
+
 [Microsoft 365 Patterns and Practices](https://aka.ms/m365pnp)
