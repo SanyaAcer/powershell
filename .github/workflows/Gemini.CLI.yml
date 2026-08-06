@@ -1,0 +1,10 @@
+name: Gemini CLI Run
+on: [push]
+jobs:
+  run-gemini:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gemini parancssori parancs futtatása
+        uses: google-github-actions/run-gemini-cli@v0.1.14
+        with:
+          api_key: ${{ secrets.GEMINI_API_KEY }}
