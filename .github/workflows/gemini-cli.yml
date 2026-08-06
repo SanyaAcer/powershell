@@ -8,3 +8,5 @@ jobs:
         uses: google-github-actions/run-gemini-cli@v0.1.14
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+        env:
+          GEMINI_CLI_TRUST_WORKSPACE: "true"
