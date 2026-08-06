@@ -6,5 +6,5 @@ jobs:
     steps:
       - name: Gemini parancssori parancs futtatása
         uses: google-github-actions/run-gemini-cli@v0.1.14
-        with:
-          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
